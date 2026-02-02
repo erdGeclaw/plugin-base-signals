@@ -95,7 +95,7 @@ Agent: 🦎 Token Score: DEGEN
 - 📖 [API Docs](https://api.ulol.li)
 - 📊 [Live Dashboard](https://dashboard.ulol.li)
 - 📢 [Telegram](https://t.me/basesmartmoney)
-- 🐦 [X/Twitter](https://x.com/erGecrawl)
+- 🐦 [X/Twitter](https://x.com/erdGecrawl)
 - 🦎 [ClawdHub Skill](https://www.clawhub.ai/skills/base-signal-feed)
 
 ## License
