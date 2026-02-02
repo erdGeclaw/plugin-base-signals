@@ -1,0 +1,73 @@
+{
+  "name": "@erdgecrawl/plugin-base-signals",
+  "description": "Real-time smart money signals, whale tracking, and token safety scoring on Base L2 for ElizaOS agents",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "packageType": "plugin",
+  "platform": "node",
+  "license": "MIT",
+  "author": "erdGecrawl",
+  "keywords": [
+    "plugin",
+    "elizaos",
+    "base",
+    "defi",
+    "smart-money",
+    "whale-tracking",
+    "signals",
+    "trading",
+    "on-chain-analytics"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/erdGeclaw/plugin-base-signals"
+  },
+  "homepage": "https://ulol.li",
+  "bugs": {
+    "url": "https://github.com/erdGeclaw/plugin-base-signals/issues"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "dependencies": {
+    "@elizaos/core": "^1.7.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "zod": "^4.3.5"
+  },
+  "scripts": {
+    "build": "bun run build.ts",
+    "dev": "bun run build.ts --watch"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "agentConfig": {
+    "pluginType": "elizaos:plugin:1.0.0",
+    "pluginParameters": {
+      "BASE_SIGNAL_API_KEY": {
+        "type": "string",
+        "description": "API key for Base Signal Feed. Get a free 7-day trial at https://ulol.li"
+      },
+      "BASE_SIGNAL_API_URL": {
+        "type": "string",
+        "description": "Signal feed API URL (default: https://signals.ulol.li)"
+      }
+    }
+  }
+}
