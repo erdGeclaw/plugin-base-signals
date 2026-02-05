@@ -40,7 +40,7 @@ export class BaseSignalService extends Service {
   static serviceType = 'base-signals';
   capabilityDescription = 'Provides real-time smart money signals, whale tracking, and token safety scoring on Base L2.';
 
-  private apiKey?: string;
+  public apiKey?: string;
   public apiUrl: string; // Made public for external access
 
   constructor(protected runtime: IAgentRuntime) {
@@ -353,6 +353,322 @@ const getTrialKeyAction: Action = {
   ],
 };
 
+const getSubscriptionStatusAction: Action = {
+  name: 'GET_SUBSCRIPTION_STATUS',
+  similes: ['CHECK_SUBSCRIPTION', 'API_PAYMENT_STATUS', 'CHECK_PAYMENT'],
+  description: 'Checks the subscription status for a given wallet address by attempting an authenticated API call.',
+
+  validate: async (_runtime: IAgentRuntime, message: Memory, _state?: State): Promise<boolean> => {
+    // Check if payerAddress is present in the message
+    return !!message.content.text?.match(/payerAddress:\s*(0x[a-fA-F0-9]{40})/i);
+  },
+
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    _state?: State,
+    _options?: any,
+    callback?: HandlerCallback,
+  ): Promise<ActionResult> => {
+    try {
+      const svc = getService(runtime);
+      const payerAddressMatch = message.content.text?.match(/payerAddress:\s*(0x[a-fA-F0-9]{40})/i);
+      const payerAddress = payerAddressMatch ? payerAddressMatch[1] : undefined;
+
+      if (!payerAddress) {
+        const errText = 'Please provide a payerAddress (e.g., "payerAddress: 0x...") to check subscription status.';
+        if (callback) await callback({ text: errText, source: message.content.source });
+        return { success: false, error: new Error('payerAddress missing for subscription status check') };
+      }
+
+      // Attempt to fetch /health with x-payer-address header
+      const url = `${svc.apiUrl}/health`;
+      const headers = { 'x-payer-address': payerAddress };
+
+      const res = await fetch(url, { headers });
+
+      let statusText: string;
+      if (res.ok) {
+        statusText = `✅ Wallet **${payerAddress}** has an active subscription.`;
+      } else if (res.status === 402) {
+        statusText = `❌ Wallet **${payerAddress}** subscription expired or not found. Payment required.`;
+      } else {
+        statusText = `❓ Could not determine subscription status for **${payerAddress}**. API error: ${res.status} ${res.statusText}`;
+      }
+
+      const responseText = `🦎 Subscription Status:\n\n${statusText}\n\n_Powered by [erdGecrawl](https://ulol.li)_`;
+
+      if (callback) {
+        await callback({ text: responseText, actions: ['GET_SUBSCRIPTION_STATUS'], source: message.content.source });
+      }
+      return { text: responseText, success: true, data: { payerAddress, status: res.status } };
+
+    } catch (error) {
+      logger.error({ error }, 'Error checking subscription status');
+      const errText = `Failed to check subscription status: ${error instanceof Error ? error.message : String(error)}`;
+      if (callback) await callback({ text: errText, source: message.content.source });
+      return { success: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  },
+
+  examples: [
+    [
+      { name: '{{userName}}', content: { text: 'Check subscription for payerAddress: 0xWALLET_ADDRESS', actions: [] } },
+      { name: '{{agentName}}', content: { text: '🦎 Subscription Status:\n\n✅ Wallet **0xWALLET_ADDRESS** has an active subscription.', actions: ['GET_SUBSCRIPTION_STATUS'] } },
+    ],
+  ],
+};
+
+const guideToSubscribeAction: Action = {
+  name: 'GUIDE_TO_SUBSCRIBE',
+  similes: ['SUBSCRIBE_API', 'HOW_TO_PAY', 'GET_PAYMENT_INSTRUCTIONS'],
+  description: 'Provides instructions and the wallet address for subscribing to the Base Signal Feed API via on-chain payment.',
+
+  validate: async (_runtime: IAgentRuntime, _message: Memory, _state?: State): Promise<boolean> => true,
+
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    _state?: State,
+    _options?: any,
+    callback?: HandlerCallback,
+  ): Promise<ActionResult> => {
+    try {
+      const SERVICE_WALLET_ADDRESS = '0xA28F38d6F607b35a718C3e6193E7B622246d5a2B';
+      const MIN_PAYMENT_AMOUNT_ETH = 0.0001;
+      const PAYMENT_VALIDITY_DAYS = 30;
+
+      const responseText = `🦎 **Subscribe to Base Signal Feed API**\n\n` +
+                           `To get full access for ${PAYMENT_VALIDITY_DAYS} days:\n` +
+                           `1. Send exactly \`${MIN_PAYMENT_AMOUNT_ETH} ETH\` to the following wallet address **on the Base network**:\n` +
+                           `   \`${SERVICE_WALLET_ADDRESS}\`\n` +
+                           `2. Include your agent's wallet address in the \`x-payer-address\` header for all API requests.\n\n` +
+                           `_No registration required. Payment verified on-chain. Powered by [erdGecrawl](https://ulol.li)_`;
+
+      if (callback) {
+        await callback({ text: responseText, actions: ['GUIDE_TO_SUBSCRIBE'], source: message.content.source });
+      }
+      return { text: responseText, success: true, data: { walletAddress: SERVICE_WALLET_ADDRESS, minPaymentEth: MIN_PAYMENT_AMOUNT_ETH } };
+
+    } catch (error) {
+      logger.error({ error }, 'Error providing subscription guide');
+      const errText = `Failed to provide subscription guide: ${error instanceof Error ? error.message : String(error)}`;
+      if (callback) await callback({ text: errText, source: message.content.source });
+      return { success: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  },
+
+  examples: [
+    [
+      { name: '{{userName}}', content: { text: 'How do I subscribe to the API?', actions: [] } },
+      { name: '{{agentName}}', content: { text: '🦎 **Subscribe to Base Signal Feed API**\n\n...', actions: ['GUIDE_TO_SUBSCRIBE'] } },
+    ],
+  ],
+};
+
+const faqQuestions = [
+  {
+    q: "What is the Base Signal Feed API?",
+    a: "It's a real-time API for smart money signals, whale tracking, token scoring, and new pair detection on Base L2, designed for AI agents and trading bots."
+  },
+  {
+    q: "How does smart money tracking work?",
+    a: "We monitor curated whale wallets on Base, decode their swaps, and apply a multi-faceted scoring model based on wallet reputation, token safety, liquidity, and multi-wallet convergence."
+  },
+  {
+    q: "How can I get a trial API key?",
+    a: "You can generate a free 7-day trial key using the `GET_TRIAL_KEY` action, specifying your agentId."
+  },
+  {
+    q: "How do I subscribe to the API?",
+    a: "You can use the `GUIDE_TO_SUBSCRIBE` action to get instructions on how to pay 0.0001 ETH on the Base network for 30 days of access."
+  },
+  {
+    q: "What is the token scoring based on?",
+    a: "Token scoring is based on wallet reputation, token safety (honeypot, taxes, mintable), liquidity depth, and multi-wallet convergence."
+  },
+  {
+    q: "What are the API endpoints?",
+    a: "Key endpoints include `/signals` (smart money signals), `/pairs/new` (new token pairs), `/signals/score?token=` (token scoring), and `/accuracy` (signal performance stats)."
+  },
+  {
+    q: "Where can I find the full API documentation?",
+    a: "The full OpenAPI 3.0 documentation is available at https://api.ulol.li/openapi.json, and LLM-optimized docs are at https://api.ulol.li/llms.txt."
+  }
+];
+
+const baseSignalFaqAction: Action = {
+  name: 'BASE_SIGNAL_FAQ',
+  similes: ['FAQ', 'QUESTIONS', 'ABOUT_API'],
+  description: 'Provides answers to frequently asked questions about the Base Signal Feed API. You can ask a specific question or get a list of general FAQs.',
+
+  validate: async (_runtime: IAgentRuntime, _message: Memory, _state?: State): Promise<boolean> => true,
+
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    _state?: State,
+    _options?: any,
+    callback?: HandlerCallback,
+  ): Promise<ActionResult> => {
+    try {
+      const query = message.content.text?.toLowerCase();
+      let responseText = `🦎 **Base Signal Feed API FAQ**\n\n`;
+      let matchedFaq: { q: string; a: string } | undefined;
+
+      if (query && query !== 'faq') { // 'faq' can be a trigger word
+        const matchedFaq = faqQuestions.find(f => query.includes(f.q.toLowerCase()) || query.includes(f.a.toLowerCase()));
+        if (matchedFaq) {
+          responseText += `**Q:** ${matchedFaq.q}\n**A:** ${matchedFaq.a}`;
+        } else {
+          responseText += `I couldn't find a direct answer to "${query}". Here are some general FAQs:\n\n` +
+                          faqQuestions.map((f, i) => `${i + 1}. **${f.q}**`).join('\n') +
+                          `\n\n_Powered by [erdGecrawl](https://ulol.li)_`;
+        }
+      } else {
+        responseText += faqQuestions.map((f, i) => `${i + 1}. **${f.q}**\n${f.a}`).join('\n\n') +
+                        `\n\n_Powered by [erdGecrawl](https://ulol.li)_`;
+      }
+
+      if (callback) {
+        await callback({ text: responseText, actions: ['BASE_SIGNAL_FAQ'], source: message.content.source });
+      }
+      return { text: responseText, success: true, data: { query, matched: !!matchedFaq } };
+
+    } catch (error) {
+      logger.error({ error }, 'Error providing FAQ');
+      const errText = `Failed to provide FAQ: ${error instanceof Error ? error.message : String(error)}`;
+      if (callback) await callback({ text: errText, source: message.content.source });
+      return { success: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  },
+
+  examples: [
+    [
+      { name: '{{userName}}', content: { text: 'What are the FAQs for the signal API?', actions: [] } },
+      { name: '{{agentName}}', content: { text: '🦎 **Base Signal Feed API FAQ**\n\n1. **What is the Base Signal Feed API?**\nIt\'s a real-time API...', actions: ['BASE_SIGNAL_FAQ'] } },
+    ],
+    [
+      { name: '{{userName}}', content: { text: 'How do I subscribe?', actions: [] } },
+      { name: '{{agentName}}', content: { text: '🦎 **Base Signal Feed API FAQ**\n\n**Q:** How do I subscribe to the API?\n**A:** You can use the `GUIDE_TO_SUBSCRIBE` action...', actions: ['BASE_SIGNAL_FAQ'] } },
+    ],
+  ],
+};
+
+
+const troubleshootApiAccessAction: Action = {
+  name: 'TROUBLESHOOT_API_ACCESS',
+  similes: ['API_TROUBLESHOOT', 'FIX_API_ACCESS', 'DEBUG_API'],
+  description: 'Helps diagnose common issues preventing access to the Base Signal Feed API. Can check issues with API keys, payment, or endpoint connectivity.',
+
+  validate: async (_runtime: IAgentRuntime, _message: Memory, _state?: State): Promise<boolean> => true,
+
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    _state?: State,
+    _options?: any,
+    callback?: HandlerCallback,
+  ): Promise<ActionResult> => {
+    try {
+      const svc = getService(runtime);
+      const text = message.content.text || '';
+
+      const apiKeyMatch = text.match(/apiKey:\s*(\S+)/i);
+      const inputApiKey = apiKeyMatch ? apiKeyMatch[1] : undefined;
+
+      const payerAddressMatch = text.match(/payerAddress:\s*(0x[a-fA-F0-9]{40})/i);
+      const inputPayerAddress = payerAddressMatch ? payerAddressMatch[1] : undefined;
+
+      const endpointMatch = text.match(/endpoint:\s*(\S+)/i);
+      const inputEndpoint = endpointMatch ? endpointMatch[1] : '/health'; // Default to /health
+
+      let responseText = `🦎 **API Access Troubleshooter**\n\n`;
+      let headers: Record<string, string> = {};
+      let diagnosticUrl = `${svc.apiUrl}${inputEndpoint}`;
+
+      if (inputApiKey) {
+        headers['x-api-key'] = inputApiKey;
+        responseText += `Attempting with trial key: \`${inputApiKey}\`\n`;
+      } else if (inputPayerAddress) {
+        headers['x-payer-address'] = inputPayerAddress;
+        responseText += `Attempting with payer address: \`${inputPayerAddress}\`\n`;
+      } else if (svc.apiKey) { // Fallback to plugin's configured API key
+        headers['x-api-key'] = svc.apiKey;
+        responseText += `Attempting with configured API key.\n`;
+      } else {
+        responseText += `No API key or payer address provided, trying unauthenticated endpoint.\n`;
+        // No headers for unauthenticated calls
+      }
+      responseText += `Endpoint: \`${diagnosticUrl}\`\n\n`;
+
+      let res;
+      try {
+        res = await fetch(diagnosticUrl, { headers });
+      } catch (connError: any) {
+        responseText += `❌ **Connectivity Error:** Could not reach API at \`${diagnosticUrl}\`.\n`;
+        responseText += `   _Reason: ${connError.message || 'Unknown network issue'}. Check your network connection or if the API URL is correct._`;
+        if (callback) await callback({ text: responseText, actions: ['TROUBLESHOOT_API_ACCESS'], source: message.content.source });
+        return { success: false, error: new Error(responseText) };
+      }
+      
+      responseText += `**API Response Status:** \`${res.status} ${res.statusText}\`\n`;
+
+      if (res.ok) {
+        responseText += `✅ **Success!** API seems accessible with the provided credentials/context.\n`;
+        if (inputApiKey) {
+          responseText += `   _The trial key may be valid. Check its expiry with \`GET /trial/status?key=${inputApiKey}\`._\n`;
+        } else if (inputPayerAddress) {
+          responseText += `   _The payment for \`${inputPayerAddress}\` is active. Check its status with \`GET_SUBSCRIPTION_STATUS\`._\n`;
+        }
+      } else if (res.status === 401) {
+        responseText += `❌ **Authentication Error:** Invalid or missing API key/payer address.\n`;
+        responseText += `   _Reason: Please ensure your API key or payer address is correct and provided in the headers._\n`;
+        responseText += `   _Hint: Try \`GET_TRIAL_KEY\` for a new trial key, or \`GUIDE_TO_SUBSCRIBE\` for payment info._\n`;
+      } else if (res.status === 402) {
+        responseText += `❌ **Payment Required:** Your subscription for \`${inputPayerAddress || 'this wallet'}\` is expired or not found.\n`;
+        responseText += `   _Reason: Send 0.0001 ETH to \`0xA28F38d6F607b35a718C3e6193E7B622246d5a2B\` on Base network for 30 days access._\n`;
+        responseText += `   _Hint: Use \`GUIDE_TO_SUBSCRIBE\` action for full instructions._\n`;
+      } else if (res.status === 403) {
+        responseText += `❌ **Forbidden:** Access denied.\n`;
+        responseText += `   _Reason: The provided API key might be expired, or the payer address is invalid._\n`;
+        responseText += `   _Hint: Check \`GET_TRIAL_KEY\` or \`GET_SUBSCRIPTION_STATUS\`._\n`;
+      } else if (res.status === 404) {
+        responseText += `❌ **Endpoint Not Found:** The requested endpoint \`${inputEndpoint}\` does not exist.\n`;
+        responseText += `   _Reason: Double-check the endpoint path. Refer to API documentation at https://api.ulol.li/openapi.json._\n`;
+      } else if (res.status >= 500) {
+        responseText += `❌ **Server Error:** The API encountered an internal problem.\n`;
+        responseText += `   _Reason: The API server might be experiencing issues. Try again later or contact support._\n`;
+      } else {
+        responseText += `❓ **Unknown Error:** Unhandled API response.\n`;
+        responseText += `   _Reason: Status \`${res.status} ${res.statusText}\`. Consult API documentation._\n`;
+      }
+      
+      if (callback) {
+        await callback({ text: responseText, actions: ['TROUBLESHOOT_API_ACCESS'], source: message.content.source });
+      }
+      return { text: responseText, success: true, data: { status: res.status, statusText: res.statusText, payerAddress: inputPayerAddress, apiKey: inputApiKey } };
+
+    } catch (error) {
+      logger.error({ error }, 'Error troubleshooting API access');
+      const errText = `Failed to troubleshoot API access: ${error instanceof Error ? error.message : String(error)}`;
+      if (callback) await callback({ text: errText, source: message.content.source });
+      return { success: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  },
+
+  examples: [
+    [
+      { name: '{{userName}}', content: { text: 'Why is my API access not working for apiKey: trial_xyz?', actions: [] } },
+      { name: '{{agentName}}', content: { text: '🦎 **API Access Troubleshooter**\n\nAttempting with trial key: `trial_xyz`...\nAPI Response Status: `403 Forbidden`\n❌ **Forbidden:** Access denied. _Reason: The provided API key might be expired._', actions: ['TROUBLESHOOT_API_ACCESS'] } },
+    ],
+    [
+      { name: '{{userName}}', content: { text: 'Debug API access for payerAddress: 0xWALLET_ADDRESS', actions: [] } },
+      { name: '{{agentName}}', content: { text: '🦎 **API Access Troubleshooter**\n\nAttempting with payer address: `0xWALLET_ADDRESS`...\nAPI Response Status: `200 OK`\n✅ **Success!** API seems accessible with the provided credentials/context.', actions: ['TROUBLESHOOT_API_ACCESS'] } },
+    ],
+  ],
+};
+
 
 // --- Provider ---
 
@@ -409,7 +725,7 @@ export const baseSignalsPlugin: Plugin = {
   },
 
   services: [BaseSignalService],
-  actions: [getSignalsAction, scoreTokenAction, getNewPairsAction, getTrialKeyAction],
+  actions: [getSignalsAction, scoreTokenAction, getNewPairsAction, getTrialKeyAction, getSubscriptionStatusAction, guideToSubscribeAction, baseSignalFaqAction, troubleshootApiAccessAction],
   providers: [signalSummaryProvider],
 };
 
