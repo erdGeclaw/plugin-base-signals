@@ -58,7 +58,7 @@ The `BASE_SIGNAL_SUMMARY` provider injects signal feed status into your agent's 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `BASE_SIGNAL_API_KEY` | Optional* | — | API key (trial or paid). Required for signal endpoints. |
-| `BASE_SIGNAL_API_URL` | No | `https://signals.ulol.li` | API URL override |
+| `BASE_SIGNAL_API_URL` | No | `https://api.ulol.li` | API URL override |
 
 \* Health check works without a key. Signal/score/pairs endpoints require authentication.
 

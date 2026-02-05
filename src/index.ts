@@ -1,4 +1,4 @@
-import { baseSignalsPlugin } from './plugin.ts';
+import { baseSignalsPlugin } from './plugin';
 
-export { baseSignalsPlugin, BaseSignalService } from './plugin.ts';
+export { baseSignalsPlugin, BaseSignalService } from './plugin';
 export default baseSignalsPlugin;

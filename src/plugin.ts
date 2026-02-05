@@ -14,7 +14,7 @@ import { z } from 'zod';
 
 // --- Config ---
 
-const API_URL_DEFAULT = 'https://signals.ulol.li';
+const API_URL_DEFAULT = 'https://api.ulol.li';
 
 const configSchema = z.object({
   BASE_SIGNAL_API_KEY: z
@@ -156,8 +156,9 @@ const getSignalsAction: Action = {
       { name: '{{agentName}}', content: { text: '🦎 **Base L2 Smart Money Signals** (last 24h)\n\n1. **DEGEN** — score: 78, action: BUY, wallet: whale_0x3f...', actions: ['GET_BASE_SIGNALS'] } },
     ],
     [
-      { name: '{{userName}}', content: { text: 'Show me whale activity on Base chain', actions: [] } },
-      { name: '{{agentName}}', content: { text: '🦎 **Base L2 Smart Money Signals** (last 24h)\n\n1. **BRETT** — score: 65, action: BUY, wallet: smart_money...', actions: ['GET_BASE_SIGNALS'] } },
+      { name: '{{userName}}', content: { text: 'Show me whale activity on Base chain', actions: [] } }
+      ,
+      { name: '{{agentName}}', content: { text: '🦎 **Base L2 Smart Money Signals** (last 24h)\n\n1. **BRETT** — score: 65, action: BUY, wallet: smart_money...', actions: ['GET_BASE_SIGNALS'] } }
     ],
   ],
 };
@@ -293,7 +294,7 @@ const signalSummaryProvider: Provider = {
       const svc = getService(runtime);
       const health = await svc.getHealth();
       return {
-        text: `Base Signal Feed is ${health.status || 'online'}. Tracking ${health.walletsTracked || '?'} whale wallets on Base L2. API: signals.ulol.li`,
+        text: `Base Signal Feed is ${health.status || 'online'}. Tracking ${health.walletsTracked || '?'} whale wallets on Base L2. API: api.ulol.li`,
         values: { signalApiStatus: health.status || 'unknown' },
         data: health,
       };
