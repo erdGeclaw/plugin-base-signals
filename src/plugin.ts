@@ -41,7 +41,7 @@ export class BaseSignalService extends Service {
   capabilityDescription = 'Provides real-time smart money signals, whale tracking, and token safety scoring on Base L2.';
 
   private apiKey?: string;
-  private apiUrl: string;
+  public apiUrl: string; // Made public for external access
 
   constructor(protected runtime: IAgentRuntime) {
     super(runtime);
@@ -279,6 +279,81 @@ const getNewPairsAction: Action = {
   ],
 };
 
+const getTrialKeyInputSchema = z.object({
+  agentId: z.string().min(1, 'agentId is required').describe('ID of the AI agent requesting the trial key'),
+  contact: z.string().optional().describe('Optional contact information (e.g., email, Telegram handle)'),
+});
+
+const getTrialKeyAction: Action = {
+  name: 'GET_TRIAL_KEY',
+  similes: ['GET_TRIAL_API_KEY', 'REQUEST_API_TRIAL', 'SIGNAL_API_TRIAL'],
+  description: 'Generate a free 7-day trial API key for the Base Signal Feed. Requires an agentId. You can optionally provide contact info.',
+
+  validate: async (_runtime: IAgentRuntime, _message: Memory, _state?: State): Promise<boolean> => true,
+
+  handler: async (
+    runtime: IAgentRuntime,
+    message: Memory,
+    _state?: State,
+    _options?: any,
+    callback?: HandlerCallback,
+  ): Promise<ActionResult> => {
+    try {
+      const svc = getService(runtime);
+      // Manually extract agentId and contact from message text or agent context
+      const agentIdMatch = message.content.text?.match(/agentId:\s*(\S+)/i);
+      const agentId = agentIdMatch ? agentIdMatch[1] : (message.content.agent as { name?: string })?.name;
+
+      const contactMatch = message.content.text?.match(/contact:\s*(\S+)/i);
+      const contact = contactMatch ? contactMatch[1] : undefined;
+      
+      if (!agentId) {
+        const errText = 'Please provide an agentId (e.g., "agentId: MyAgent") to generate a trial key.';
+        if (callback) await callback({ text: errText, source: message.content.source });
+        return { success: false, error: new Error('agentId missing for trial key generation') };
+      }
+
+      const response = await fetch(`${svc.apiUrl}/trial`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ agentId, contact }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate trial key.');
+      }
+
+      const responseText = `🦎 Trial key generated for **${agentId}**:\n\n` +
+                           `\`${data.apiKey}\`\n\n` +
+                           `Expires: ${new Date(data.expiry).toLocaleString()}\n\n` +
+                           `_Powered by [erdGecrawl](https://ulol.li)_`;
+
+      if (callback) {
+        await callback({ text: responseText, actions: ['GET_TRIAL_KEY'], source: message.content.source });
+      }
+      return { text: responseText, success: true, data };
+
+    } catch (error) {
+      logger.error({ error }, 'Error generating trial key');
+      const errText = `Failed to generate trial key: ${error instanceof Error ? error.message : String(error)}`;
+      if (callback) await callback({ text: errText, source: message.content.source });
+      return { success: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  },
+
+  examples: [
+    [
+      { name: '{{userName}}', content: { text: 'Generate a trial key for MyAgent', actions: [] } },
+      { name: '{{agentName}}', content: { text: '🦎 Trial key generated for **MyAgent**:\n\n`trial_xxx`\n\nExpires: ...', actions: ['GET_TRIAL_KEY'] } },
+    ],
+  ],
+};
+
+
 // --- Provider ---
 
 const signalSummaryProvider: Provider = {
@@ -334,7 +409,7 @@ export const baseSignalsPlugin: Plugin = {
   },
 
   services: [BaseSignalService],
-  actions: [getSignalsAction, scoreTokenAction, getNewPairsAction],
+  actions: [getSignalsAction, scoreTokenAction, getNewPairsAction, getTrialKeyAction],
   providers: [signalSummaryProvider],
 };
 
