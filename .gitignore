@@ -1,2 +1,2 @@
-node_modules/\ndist/\n.turbo/
-bun.lock\npackage-lock.json
+dist/
+node_modules/
