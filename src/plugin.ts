@@ -376,7 +376,7 @@ const getSubscriptionStatusAction: Action = {
       const payerAddress = payerAddressMatch ? payerAddressMatch[1] : undefined;
 
       if (!payerAddress) {
-        const errText = 'Please provide a payerAddress (e.g., "payerAddress: 0x...") to check subscription status.';
+        const errText = 'Please provide a payerAddress (0x...) to check subscription status.';
         if (callback) await callback({ text: errText, source: message.content.source });
         return { success: false, error: new Error('payerAddress missing for subscription status check') };
       }
@@ -663,8 +663,9 @@ const troubleshootApiAccessAction: Action = {
       { name: '{{agentName}}', content: { text: '🦎 **API Access Troubleshooter**\n\nAttempting with trial key: `trial_xyz`...\nAPI Response Status: `403 Forbidden`\n❌ **Forbidden:** Access denied. _Reason: The provided API key might be expired._', actions: ['TROUBLESHOOT_API_ACCESS'] } },
     ],
     [
-      { name: '{{userName}}', content: { text: 'Debug API access for payerAddress: 0xWALLET_ADDRESS', actions: [] } },
-      { name: '{{agentName}}', content: { text: '🦎 **API Access Troubleshooter**\n\nAttempting with payer address: `0xWALLET_ADDRESS`...\nAPI Response Status: `200 OK`\n✅ **Success!** API seems accessible with the provided credentials/context.', actions: ['TROUBLESHOOT_API_ACCESS'] } },
+      { name: '{{userName}}', content: { text: 'Debug API access for payerAddress: 0xWALLET_ADDRESS', actions: [] } }
+      ,
+      { name: '{{agentName}}', content: { text: '🦎 **API Access Troubleshooter**\n\nAttempting with payer address: `0xWALLET_ADDRESS`...\nAPI Response Status: `200 OK`\n✅ **Success!** API seems accessible with the provided credentials/context.', actions: ['TROUBLESHOOT_API_ACCESS'] } }
     ],
   ],
 };
